@@ -48,6 +48,7 @@ game/
 pip install pygame
 python -m game
 ```
+或使用打包好的压缩包进行游玩
 
 ### 联机对战
 
