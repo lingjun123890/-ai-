@@ -20,21 +20,38 @@
 所有开源代码均在 `` 目录内：
 
 ```
-game/
-├── __main__.py          # 支持 `python -m game` 启动
-├── main.py              # 入口：模式选择与路由
-├── engine.py            # 游戏引擎：回合流转、出牌校验、胜负判定
-├── player.py            # 玩家数据类
-├── card.py              # 全部 18 张卡牌的类定义
-├── deck.py              # 共享牌库构建与抽牌
-├── config.py            # 游戏常量与数值配置（改这里调平衡）
-├── gui.py               # Pygame 界面与事件循环（主菜单、大厅、对战）
-├── renderer.py          # 渲染抽象层（ABC）
-├── network.py           # TCP 联机层：直连 / 多人广播 / Ping 测延迟
-├── relay.py             # 独立中继服务器（绕过 NAT）
-├── music.py             # 背景音乐管理（支持本地文件夹扫描）
-└── credits/
-    └── credits_data.py  # 鸣谢名单
+game/                           ← 全部源码（17 个 .py 文件）
+├── __init__.py
+├── __main__.py
+├── main.py                     入口：ModeScreen → 分发到 Game / run_host_multiplayer ...
+│
+├── config.py                   常量：HP=40 / MAX_SCORE=11 / 牌库数 / 卡牌计数
+├── card.py                     Card 基类 + 全部具体卡牌（含威慑纪元 DeterrenceEraCard）
+├── player.py                   Player 数据类：health / score / hand / deck / team_id
+│
+├── deck.py                     标准牌库构建 + 洗牌
+├── endless_deck.py             永无止境模式：概率表 + 无重复抽牌
+│
+├── engine.py                   核心引擎：回合流程 / 出牌结算 / 判胜 / 多人死亡
+├── renderer.py                 抽象渲染器接口
+│
+├── music.py                    BGM
+│
+├── network.py                  Host / Client 联机通信
+├── relay.py                    服务端中继
+│
+├── gui.py                      薄兼容层：from .ui import *
+│
+├── credits/
+│   ├── __init__.py
+│   └── credits_data.py
+│
+└── ui/                         GUI 模块化子包（原 4000+ 行 gui.py 拆分）
+    ├── __init__.py             re-export 全部符号（类 + 模块级函数）
+    ├── gui_base.py             常量 / Geometry / GUIRenderer / Button
+    ├── screens.py              ModeScreen（主菜单、设置）
+    ├── lobby.py                LobbyScreen（多人房间）
+    └── game_view.py            Game / ClientGame（核心对战视图）
 ```
 
 ## 环境要求
