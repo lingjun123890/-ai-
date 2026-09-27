@@ -48,7 +48,9 @@ game/
 pip install pygame
 python -m game
 ```
-或使用打包好的压缩包进行游玩压缩包链接https://pan.quark.cn/s/2d8a56c27adf?pwd=ReBw
+或使用打包好的压缩包进行游玩压缩包
+链接：https://pan.quark.cn/s/f97a5e3c6218
+提取码：E4md
 
 ### 联机对战
 
