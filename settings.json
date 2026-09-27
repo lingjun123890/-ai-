@@ -1,0 +1,12 @@
+{
+  "header_h_ratio": 0.085,
+  "footer_h_ratio": 0.15,
+  "edge_pad_ratio": 0.02,
+  "card_gap_ratio": 0.013,
+  "card_count": 5,
+  "card_ratio": 0.7058823529411765,
+  "music_volume": 0.42,
+  "music_folder": "D:\\CloudMusic",
+  "music_shuffle": false,
+  "music_loop": true
+}

@@ -7,7 +7,8 @@ from .card import (Card, AttackCard, ThoughtStampCard, StellarHydrogenCard,
                    RedCoastCard, TechExplosionCard,
                    ResourceConvertCard, DimensionCleanupCard,
                    WallFacingCard, EscapismCard,
-                   SuspicionChainCard, GravityWaveCard)
+                   SuspicionChainCard, GravityWaveCard,
+                   DeterrenceEraCard)
 from .config import (BASIC_ATTACK_COUNT,
                      THOUGHT_STAMP_COUNT, STELLAR_HYDROGEN_COUNT,
                      PROTON_SOPHON_COUNT, DARK_FOREST_COUNT,
@@ -17,7 +18,8 @@ from .config import (BASIC_ATTACK_COUNT,
                      RED_COAST_COUNT, TECH_EXPLOSION_COUNT,
                      RESOURCE_CONVERT_COUNT, DIMENSION_CLEANUP_COUNT,
                      WALL_FACING_COUNT, ESCAPISM_COUNT,
-                     SUSPICION_CHAIN_COUNT, GRAVITY_WAVE_COUNT)
+                     SUSPICION_CHAIN_COUNT, GRAVITY_WAVE_COUNT,
+                     DETERRENCE_ERA_COUNT)
 
 
 class Deck:
@@ -34,6 +36,53 @@ class Deck:
         if not self._cards:
             return None
         return self._cards.pop()
+
+    def add_card(self, card: Card) -> None:
+        self._cards.append(card)
+
+    def add_cards(self, cards: List[Card]) -> None:
+        self._cards.extend(cards)
+
+    def append_solo_standard(self) -> None:
+        def _scaled(n: int) -> int:
+            return max(1, int(n * 0.5)) if 0.5 < 1.0 else n
+
+        existing_ids = {c.card_id for c in self._cards}
+        new_cards: List[Card] = []
+
+        def _make(card_cls, raw_count, prefix):
+            for i in range(_scaled(raw_count)):
+                cid = f"death_refill_{prefix}_{i}"
+                if cid in existing_ids:
+                    for j in range(10000):
+                        cid = f"death_refill_{prefix}_{i}_{j}"
+                        if cid not in existing_ids:
+                            break
+                new_cards.append(card_cls(card_id=cid))
+                existing_ids.add(cid)
+
+        _make(AttackCard, BASIC_ATTACK_COUNT, "攻击")
+        _make(ThoughtStampCard, THOUGHT_STAMP_COUNT, "思想钢印")
+        _make(StellarHydrogenCard, STELLAR_HYDROGEN_COUNT, "恒星级氢弹")
+        _make(SophonPlunderCard, PROTON_SOPHON_COUNT, "智子掠夺")
+        _make(DarkForestStrikeCard, DARK_FOREST_COUNT, "黑暗森林打击")
+        _make(HealCard, BASIC_HEAL_COUNT, "恢复")
+        _make(DehydrationCard, DEHYDRATION_COUNT, "脱水")
+        _make(BunkerPlanCard, BUNKER_PLAN_COUNT, "掩体计划")
+        _make(DropletImpactCard, DROPLET_IMPACT_COUNT, "水滴撞击")
+        _make(StaircasePlanCard, STAIRCASE_PLAN_COUNT, "阶梯计划")
+        _make(RedCoastCard, RED_COAST_COUNT, "红岸监听")
+        _make(TechExplosionCard, TECH_EXPLOSION_COUNT, "技术爆炸")
+        _make(ResourceConvertCard, RESOURCE_CONVERT_COUNT, "资源转化")
+        _make(DimensionCleanupCard, DIMENSION_CLEANUP_COUNT, "降维清理")
+        _make(WallFacingCard, WALL_FACING_COUNT, "面壁计划")
+        _make(EscapismCard, ESCAPISM_COUNT, "逃亡主义")
+        _make(SuspicionChainCard, SUSPICION_CHAIN_COUNT, "猜疑链")
+        _make(GravityWaveCard, GRAVITY_WAVE_COUNT, "引力波天线")
+        _make(DeterrenceEraCard, DETERRENCE_ERA_COUNT, "威慑纪元")
+
+        self._cards.extend(new_cards)
+        self.shuffle()
 
     def build_shared_deck(self, scale: float = 1.0) -> None:
         def _scaled(n: int) -> int:
@@ -92,6 +141,9 @@ class Deck:
 
         for i in range(_scaled(GRAVITY_WAVE_COUNT)):
             self._cards.append(GravityWaveCard(card_id=f"引力波天线_{i}"))
+
+        for i in range(_scaled(DETERRENCE_ERA_COUNT)):
+            self._cards.append(DeterrenceEraCard(card_id=f"威慑纪元_{i}"))
 
         self.shuffle()
 

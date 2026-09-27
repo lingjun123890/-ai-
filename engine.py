@@ -3,9 +3,14 @@ from typing import List, Optional
 from .player import Player
 from .card import Card
 from .deck import Deck
+from .endless_deck import EndlessDeck
 from .config import (HAND_TARGET, MAX_SCORE_CAP, DECK_TOTAL_SIZE,
                      TRAINING_OPPONENT_HP, TRAINING_OPPONENT_MAX_SCORE)
 from .renderer import BaseRenderer
+
+ENDLESS_MODES = {"endless_1v1"}
+DEATH_REFILL_MODES = {"4p_free", "2v2"}
+SOLO_STANDARD_CARD_COUNT = 121
 
 
 @dataclass
@@ -27,13 +32,19 @@ class GameEngine:
         self.renderer: Optional[BaseRenderer] = renderer
         self._played_this_turn: bool = False
         self._turn_played_cards: List[Card] = []
+        self._deaths_processed: set = set()
 
         num = len(self.players)
         self._assign_teams(num, mode)
 
-        self.shared_deck: Deck = Deck()
-        self.shared_deck.build_shared_deck(scale=deck_scale)
-        self.deck_total_size: int = len(self.shared_deck)
+        self.is_endless = mode in ENDLESS_MODES
+        if self.is_endless:
+            self.shared_deck = EndlessDeck()
+            self.deck_total_size = 0
+        else:
+            self.shared_deck: Deck = Deck()
+            self.shared_deck.build_shared_deck(scale=deck_scale)
+            self.deck_total_size: int = len(self.shared_deck)
 
         for p in self.players:
             while len(p.hand) < HAND_TARGET:
@@ -74,13 +85,28 @@ class GameEngine:
         return self.players[self.state.current_player_index]
 
     def next_player(self) -> None:
-        self.state.current_player_index = (
-            (self.state.current_player_index + 1) % len(self.players)
-        )
+        n = len(self.players)
+        for offset in range(1, n + 1):
+            candidate = (self.state.current_player_index + offset) % n
+            if self.players[candidate].is_alive():
+                self.state.current_player_index = candidate
+                return
+        self.state.current_player_index = 0
 
     def start_turn(self) -> None:
-        self.state.turn_count += 1
+        self._check_game_over()
+        if self.state.is_game_over:
+            return
+
         player = self.current_player
+        if not player.is_alive():
+            self.next_player()
+            player = self.current_player
+            if not player.is_alive():
+                self._check_game_over()
+                return
+
+        self.state.turn_count += 1
 
         if getattr(player, "training_dummy", False):
             self._played_this_turn = False
@@ -110,6 +136,10 @@ class GameEngine:
             self.renderer.render_turn_start(self)
 
     def play_card(self, hand_index: int, target_index: Optional[int] = None) -> bool:
+        if not self.current_player.is_alive():
+            if self.renderer:
+                self.renderer.render_error("已阵亡玩家无法出牌")
+            return False
         player = self.current_player
         card = None
         if 0 <= hand_index < len(player.hand):
@@ -174,11 +204,90 @@ class GameEngine:
             self.renderer.render_turn_end(self)
         self.start_turn()
 
+    def _process_new_deaths(self) -> None:
+        if self.is_endless:
+            return
+        new_deaths = [
+            (i, p) for i, p in enumerate(self.players)
+            if not p.is_alive() and i not in self._deaths_processed
+        ]
+        if not new_deaths:
+            return
+        for idx, dead in new_deaths:
+            self._deaths_processed.add(idx)
+            hand_count = len(dead.hand)
+            recovered = list(dead.hand)
+            dead.hand.clear()
+            self.shared_deck.add_cards(recovered)
+            if hasattr(self.shared_deck, "append_solo_standard"):
+                self.shared_deck.append_solo_standard()
+            if self.renderer:
+                self.renderer.render_info(
+                    f"{dead.name} 倒下了！回收 {hand_count} 张手牌 + 补充 121 张标准牌库"
+                )
+
     def _check_game_over(self) -> None:
+        if self.state.is_game_over:
+            return
         alive = [p for p in self.players if p.is_alive()]
+
+        team_ids = {getattr(p, "team_id", i) for i, p in enumerate(self.players)}
+        if len(team_ids) > 1 and self.mode in ("2v2",):
+            dead_teams = {tid for tid in team_ids
+                          if all(not p.is_alive() for p in self.players
+                                 if getattr(p, "team_id", -1) == tid)}
+            alive_teams = team_ids - dead_teams
+            if dead_teams and not alive_teams:
+                self.state.is_game_over = True
+                self.state.winner = "平局 (全员阵亡)"
+                if self.renderer:
+                    self.renderer.render_game_over(self)
+                return
+            if dead_teams and len(alive_teams) == 1:
+                win_tid = next(iter(alive_teams))
+                win_members = [p.name for p in self.players
+                               if getattr(p, "team_id", -1) == win_tid]
+                self.state.is_game_over = True
+                self.state.winner = "、".join(win_members) + f"（队伍胜利）"
+                if self.renderer:
+                    self.renderer.render_game_over(self)
+                return
+
         if len(alive) <= 1:
             self.state.is_game_over = True
             self.state.winner = alive[0].name if alive else "平局"
+            if self.renderer:
+                self.renderer.render_game_over(self)
+            return
+
+        self._process_new_deaths()
+        if not self.is_endless and len(self.shared_deck) == 0:
+            if len(team_ids) > 1 and self.mode in ("2v2",):
+                team_hp = {tid: sum(p.health for p in self.players
+                                    if getattr(p, "team_id", -1) == tid)
+                           for tid in team_ids}
+                max_hp = max(team_hp.values())
+                top_teams = [tid for tid, v in team_hp.items() if v == max_hp]
+                if len(top_teams) == 1:
+                    win_members = [p.name for p in self.players
+                                   if getattr(p, "team_id", -1) == top_teams[0]]
+                    self.state.is_game_over = True
+                    self.state.winner = "、".join(win_members) + f"（牌库耗尽，队伍HP最高）"
+                    if self.renderer:
+                        self.renderer.render_game_over(self)
+                    return
+                self.state.is_game_over = True
+                self.state.winner = "平局 (牌库耗尽)"
+                if self.renderer:
+                    self.renderer.render_game_over(self)
+                return
+            max_hp = max(p.health for p in alive)
+            top = [p for p in alive if p.health == max_hp]
+            self.state.is_game_over = True
+            if len(top) == 1:
+                self.state.winner = top[0].name
+            else:
+                self.state.winner = "平局 (牌库耗尽)"
             if self.renderer:
                 self.renderer.render_game_over(self)
 
@@ -186,14 +295,20 @@ class GameEngine:
         if self.state.is_game_over:
             return
         loser = self.players[player_index]
-        winner = next((p for i, p in enumerate(self.players) if i != player_index), None)
         self.state.is_game_over = True
-        if winner is not None:
-            self.state.winner = winner.name
-            if self.renderer:
-                self.renderer.render_game_over(self)
+        if self.mode in ("2v2",):
+            loser_tid = getattr(loser, "team_id", -1)
+            winners = [p for p in self.players
+                       if getattr(p, "team_id", -1) != loser_tid]
+            if winners:
+                self.state.winner = "、".join(p.name for p in winners) + f"（{loser.name} 投降）"
+            else:
+                self.state.winner = f"平局 ({loser.name} 投降)"
         else:
-            self.state.winner = f"平局 ({loser.name} 投降)"
+            winner = next((p for i, p in enumerate(self.players) if i != player_index), None)
+            self.state.winner = winner.name if winner else f"平局 ({loser.name} 投降)"
+        if self.renderer:
+            self.renderer.render_game_over(self)
 
     def propose_peace(self, player_index: int) -> None:
         if self.state.is_game_over or self.state.peace_proposer_index is not None:

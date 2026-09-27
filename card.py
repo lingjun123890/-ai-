@@ -1,11 +1,13 @@
+import random
 from dataclasses import dataclass, field
-from typing import Optional, TYPE_CHECKING
-from .config import (CARD_TEMPLATE_DESC, DEFAULT_CARD_COST, ATTACK_DAMAGE,
+from typing import Optional, TYPE_CHECKING, List
+from .config import (DEFAULT_CARD_COST, ATTACK_DAMAGE,
                      HEAL_AMOUNT,
                      DARK_FOREST_HP_THRESHOLD, STAIRCASE_HP_THRESHOLD)
 
 if TYPE_CHECKING:
     from .engine import GameEngine
+    from .player import Player
 
 
 CARD_TYPES = ("攻击", "恢复", "功能", "积分")
@@ -28,8 +30,8 @@ CARD_TYPE_DESC = {
 @dataclass
 class Card:
     card_id: str
-    name: str = "模板卡牌"
-    description: str = CARD_TEMPLATE_DESC
+    name: str = ""
+    description: str = ""
     flavor: str = ""
     cost: int = DEFAULT_CARD_COST
     card_type: str = "功能"
@@ -40,7 +42,7 @@ class Card:
             self.card_id = f"card_{id(self)}"
         if self.card_type in CARD_TYPE_COLOR:
             self.template_color = CARD_TYPE_COLOR[self.card_type]
-        if self.description == CARD_TEMPLATE_DESC and self.card_type in CARD_TYPE_DESC:
+        if not self.description and self.card_type in CARD_TYPE_DESC:
             self.description = CARD_TYPE_DESC[self.card_type]
 
     def get_actual_cost(self, owner: "Player", engine: Optional["GameEngine"] = None) -> int:
@@ -92,6 +94,7 @@ class Card:
             "EscapismCard": EscapismCard,
             "SuspicionChainCard": SuspicionChainCard,
             "GravityWaveCard": GravityWaveCard,
+            "DeterrenceEraCard": DeterrenceEraCard,
         }
         target_cls = cls_map.get(class_name, Card)
         kwargs = {k: v for k, v in data.items() if k != "class"}
@@ -105,9 +108,9 @@ class AttackCard(Card):
     def __post_init__(self):
         self.cost = DEFAULT_CARD_COST
         self.card_type = "攻击"
-        if not self.name or self.name == "模板卡牌":
+        if not self.name:
             self.name = "基础打击"
-        if not self.description or self.description == CARD_TEMPLATE_DESC:
+        if not self.description:
             self.description = f"对敌方造成 {self.damage} 点伤害。"
         if not self.flavor:
             self.flavor = "常规物理武器或低能激光试探。"
@@ -128,9 +131,9 @@ class ThoughtStampCard(Card):
     def __post_init__(self):
         self.cost = 0
         self.card_type = "攻击"
-        if not self.name or self.name == "模板卡牌":
+        if not self.name:
             self.name = "思想钢印"
-        if not self.description or self.description == CARD_TEMPLATE_DESC:
+        if not self.description:
             self.description = (
                 f"对敌方造成 {self.damage} 点伤害。"
                 f"代价: 你的积分上限永久 -1。"
@@ -153,11 +156,11 @@ class StellarHydrogenCard(Card):
     damage: int = 10
 
     def __post_init__(self):
-        self.cost = 3
+        self.cost = 7
         self.card_type = "攻击"
-        if not self.name or self.name == "模板卡牌":
+        if not self.name:
             self.name = "恒星级氢弹"
-        if not self.description or self.description == CARD_TEMPLATE_DESC:
+        if not self.description:
             self.description = f"对敌方造成 {self.damage} 点伤害。"
         if not self.flavor:
             self.flavor = "面壁者雷迪亚兹的终极计划, 以毁灭太阳系为代价的绝对威慑。"
@@ -179,9 +182,9 @@ class SophonPlunderCard(Card):
     def __post_init__(self):
         self.cost = 2
         self.card_type = "攻击"
-        if not self.name or self.name == "模板卡牌":
+        if not self.name:
             self.name = "智子掠夺"
-        if not self.description or self.description == CARD_TEMPLATE_DESC:
+        if not self.description:
             self.description = f"对敌方造成 {self.damage} 点伤害, 并恢复自身 {self.heal_amount} 点生命。"
         if not self.flavor:
             self.flavor = "利用智子干扰敌方实验, 将对方的科技与资源转化为己用。"
@@ -203,9 +206,9 @@ class DarkForestStrikeCard(Card):
     def __post_init__(self):
         self.cost = 1
         self.card_type = "攻击"
-        if not self.name or self.name == "模板卡牌":
+        if not self.name:
             self.name = "黑暗森林打击"
-        if not self.description or self.description == CARD_TEMPLATE_DESC:
+        if not self.description:
             self.description = (
                 f"对敌方造成 {self.damage} 点伤害; "
                 f"若敌方生命值低于 {DARK_FOREST_HP_THRESHOLD} 点, 则伤害翻倍 ({self.damage * 2} 点伤害)。"
@@ -233,9 +236,9 @@ class HealCard(Card):
     def __post_init__(self):
         self.cost = 2
         self.card_type = "恢复"
-        if not self.name or self.name == "模板卡牌":
+        if not self.name:
             self.name = "生态恢复"
-        if not self.description or self.description == CARD_TEMPLATE_DESC:
+        if not self.description:
             self.description = f"恢复自身 {self.heal_amount} 点生命值。"
         if not self.flavor:
             self.flavor = "乱纪元结束后的文明重建与自我修复。"
@@ -252,9 +255,9 @@ class DehydrationCard(Card):
     def __post_init__(self):
         self.cost = 0
         self.card_type = "恢复"
-        if not self.name or self.name == "模板卡牌":
+        if not self.name:
             self.name = "脱水"
-        if not self.description or self.description == CARD_TEMPLATE_DESC:
+        if not self.description:
             self.description = f"恢复自身 {self.heal_amount} 点生命值。"
         if not self.flavor:
             self.flavor = "三体人在乱纪元来临时的保命本能, 不消耗额外资源。"
@@ -272,9 +275,9 @@ class BunkerPlanCard(Card):
     def __post_init__(self):
         self.cost = 4
         self.card_type = "恢复"
-        if not self.name or self.name == "模板卡牌":
+        if not self.name:
             self.name = "掩体计划"
-        if not self.description or self.description == CARD_TEMPLATE_DESC:
+        if not self.description:
             self.description = f"恢复自身 {self.heal_amount} 点生命值。"
         if not self.flavor:
             self.flavor = "消耗巨量资源建造掩体, 在黑暗森林打击下争取一线生机。"
@@ -293,9 +296,9 @@ class DropletImpactCard(Card):
     def __post_init__(self):
         self.cost = 2
         self.card_type = "恢复"
-        if not self.name or self.name == "模板卡牌":
+        if not self.name:
             self.name = "水滴撞击"
-        if not self.description or self.description == CARD_TEMPLATE_DESC:
+        if not self.description:
             self.description = f"对敌方造成 {self.damage} 点伤害, 并恢复自身 {self.heal_amount} 点生命。"
         if not self.flavor:
             self.flavor = "强互作用力探测器\"水滴\"的绝对穿透, 以战养战, 攻防一体。"
@@ -318,9 +321,9 @@ class StaircasePlanCard(Card):
     def __post_init__(self):
         self.cost = 2
         self.card_type = "恢复"
-        if not self.name or self.name == "模板卡牌":
+        if not self.name:
             self.name = "阶梯计划"
-        if not self.description or self.description == CARD_TEMPLATE_DESC:
+        if not self.description:
             self.description = (
                 f"恢复自身 {self.heal_amount} 点生命值。"
                 f"若自身生命值低于 20 点, 额外抽 1 张牌。"
@@ -346,9 +349,9 @@ class RedCoastCard(Card):
     def __post_init__(self):
         self.cost = 1
         self.card_type = "功能"
-        if not self.name or self.name == "模板卡牌":
+        if not self.name:
             self.name = "红岸监听"
-        if not self.description or self.description == CARD_TEMPLATE_DESC:
+        if not self.description:
             self.description = f"消耗 {self.cost} 积分, 抽 {self.draw_count} 张牌。"
         if not self.flavor:
             self.flavor = "向宇宙发送信号, 探寻未知的希望与危机。"
@@ -372,9 +375,9 @@ class TechExplosionCard(Card):
     def __post_init__(self):
         self.cost = 1
         self.card_type = "功能"
-        if not self.name or self.name == "模板卡牌":
+        if not self.name:
             self.name = "技术爆炸"
-        if not self.description or self.description == CARD_TEMPLATE_DESC:
+        if not self.description:
             self.description = f"消耗 {self.cost} 积分, 本回合你打出的所有攻击牌伤害 +{self.bonus_amount}。"
         if not self.flavor:
             self.flavor = "低级文明在短期内实现科技的飞跃。"
@@ -393,9 +396,9 @@ class ResourceConvertCard(Card):
     def __post_init__(self):
         self.cost = 2
         self.card_type = "功能"
-        if not self.name or self.name == "模板卡牌":
+        if not self.name:
             self.name = "资源转化"
-        if not self.description or self.description == CARD_TEMPLATE_DESC:
+        if not self.description:
             self.description = (
                 f"消耗 {self.cost} 积分, 弃掉 {self.discard_count} 张手牌, 然后抽 {self.draw_count} 张牌。"
             )
@@ -425,9 +428,9 @@ class DimensionCleanupCard(Card):
     def __post_init__(self):
         self.cost = 3
         self.card_type = "功能"
-        if not self.name or self.name == "模板卡牌":
+        if not self.name:
             self.name = "降维清理"
-        if not self.description or self.description == CARD_TEMPLATE_DESC:
+        if not self.description:
             self.description = (
                 f"消耗 {self.cost} 积分, 对敌方造成 {self.damage} 点伤害。"
                 f"若本回合已打出过【技术爆炸】, 则此牌消耗变为 0。"
@@ -461,9 +464,9 @@ class WallFacingCard(Card):
     def __post_init__(self):
         self.cost = 3
         self.card_type = "积分"
-        if not self.name or self.name == "模板卡牌":
+        if not self.name:
             self.name = "面壁计划"
-        if not self.description or self.description == CARD_TEMPLATE_DESC:
+        if not self.description:
             self.description = (
                 f"消耗 {self.cost} 积分, 积分上限永久 +{self.bonus}。"
                 f"本回合跳过抽牌。"
@@ -486,9 +489,9 @@ class EscapismCard(Card):
     def __post_init__(self):
         self.cost = 3
         self.card_type = "积分"
-        if not self.name or self.name == "模板卡牌":
+        if not self.name:
             self.name = "逃亡主义"
-        if not self.description or self.description == CARD_TEMPLATE_DESC:
+        if not self.description:
             self.description = (
                 f"消耗 {self.cost} 积分, 积分上限永久 +{self.bonus}。"
                 f"自身扣除 {self.self_damage} 点生命值。"
@@ -511,9 +514,9 @@ class SuspicionChainCard(Card):
     def __post_init__(self):
         self.cost = 3
         self.card_type = "积分"
-        if not self.name or self.name == "模板卡牌":
+        if not self.name:
             self.name = "猜疑链"
-        if not self.description or self.description == CARD_TEMPLATE_DESC:
+        if not self.description:
             self.description = (
                 f"消耗 {self.cost} 积分, 积分上限永久 +{self.bonus}。"
                 f"指定对手的积分上限永久 -{self.opponent_penalty}。"
@@ -540,9 +543,9 @@ class GravityWaveCard(Card):
     def __post_init__(self):
         self.cost = 3
         self.card_type = "积分"
-        if not self.name or self.name == "模板卡牌":
+        if not self.name:
             self.name = "引力波天线"
-        if not self.description or self.description == CARD_TEMPLATE_DESC:
+        if not self.description:
             self.description = (
                 f"消耗 {self.cost} 积分, 积分上限永久 +{self.bonus}。"
                 f"获得 {self.score_gain} 积分。"
@@ -555,3 +558,48 @@ class GravityWaveCard(Card):
                 engine: Optional["GameEngine"] = None) -> None:
         owner.increase_max_score(self.bonus)
         owner.score = min(owner.max_score, owner.score + self.score_gain)
+
+
+CARD_TYPE_PRIORITY = {"积分": 0, "功能": 1, "恢复": 2, "攻击": 3}
+
+
+def _pick_steal_card(hand: List["Card"]) -> Optional["Card"]:
+    if not hand:
+        return None
+    max_cost = max(c.cost for c in hand)
+    candidates = [c for c in hand if c.cost == max_cost]
+    if len(candidates) == 1:
+        return candidates[0]
+    best_priority = min(CARD_TYPE_PRIORITY.get(c.card_type, 99) for c in candidates)
+    candidates = [c for c in candidates if CARD_TYPE_PRIORITY.get(c.card_type, 99) == best_priority]
+    return random.choice(candidates)
+
+
+@dataclass
+class DeterrenceEraCard(Card):
+    def __post_init__(self):
+        self.cost = 3
+        self.card_type = "功能"
+        if not self.name:
+            self.name = "威慑纪元"
+        if not self.description:
+            self.description = (
+                f"消耗 {self.cost} 积分, 从敌方手牌中夺取一张积分消耗最高的卡牌加入自己的手牌"
+            )
+        if not self.flavor:
+            self.flavor = "罗辑以黑暗森林威慑三体世界, 同时要求三体提供技术援助。"
+        self.template_color = CARD_TYPE_COLOR["功能"]
+
+    def needs_target(self) -> bool:
+        return True
+
+    def on_play(self, owner: "Player", target: Optional["Player"] = None,
+                engine: Optional["GameEngine"] = None) -> None:
+        if target is None or not target.hand:
+            return
+        stolen = _pick_steal_card(target.hand)
+        if stolen is None:
+            return
+        idx = target.hand.index(stolen)
+        target.hand.pop(idx)
+        owner.hand.append(stolen)

@@ -14,7 +14,7 @@ def main() -> None:
 
         if mode == "offline":
             engine = GameEngine(["玩家A", "玩家B"], deck_scale=0.5)
-            game = Game(engine)
+            game = Game(engine, follows_current_view=True)
             game.run()
         elif mode == "training":
             engine = GameEngine.create_training()
