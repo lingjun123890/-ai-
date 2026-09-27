@@ -64,7 +64,7 @@ pip install pygame>=2.6.1
 python -m game
 ```
 
-或使用打包好的压缩包进行游玩。
+或使用打包好的压缩包进行游玩链接：https://pan.quark.cn/s/f97a5e3c6218 提取码：E4md
 
 ## 联机对战
 
